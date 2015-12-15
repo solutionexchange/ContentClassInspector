@@ -1,0 +1,15 @@
+body {
+	padding-top: 15px;
+}
+
+.templates {
+	padding-left: 35px;
+}
+
+.template-variant-code.modal.fade.in {
+	top: 2.5%;
+    left: 2.5%;
+    width: 95%;
+    height: 95%;
+    margin: 0px;
+}

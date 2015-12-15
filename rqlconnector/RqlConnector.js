@@ -49,7 +49,7 @@ RqlConnector.prototype.SendRqlWebService = function (InnerRQL, IsText, CallbackF
         data = $.trim(data);
 
         var RetRql = $($.parseXML(data)).find('Result').text();
-        RetRql = $.tr(RetRql);
+        RetRql = $.trim(RetRql);
 
         if (IsText) {
             data = RetRql;
@@ -95,18 +95,32 @@ RqlConnector.prototype.padRQLXML = function (InnerRQL, IsText) {
     return Rql;
 }
 
-RqlConnector.prototype.TestConnection = function (Url) {
-    var Isvalid = false;
+RqlConnector.prototype.TestConnection = function (Url, CallbackFunc) {
+	var IsAsync = false;
+    var IsValid = false;
+	
+	if(CallbackFunc) {
+		IsAsync = true;
+	}
+	
     $.ajax({
-        async: false,
+        async: IsAsync,
         url: Url,
         success: function () {
-            Isvalid = true;
+            IsValid = true;
+			
+			if(CallbackFunc) {
+				CallbackFunc(IsValid);
+			}
         },
         error: function () {
-            Isvalid = false;
+            IsValid = false;
+			
+			if(CallbackFunc) {
+				CallbackFunc(IsValid);
+			}
         }
     });
 
-    return Isvalid;
+    return IsValid;
 }

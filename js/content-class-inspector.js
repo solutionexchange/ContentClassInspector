@@ -2,12 +2,59 @@ function ContentClassInspector(RqlConnectorObj, ContentClassGuid) {
 	var ThisClass = this;
 	this.RqlConnectorObj = RqlConnectorObj;
 	
+	this.TemplateDialog = '#template-dialog';
+	this.TemplateDialogTemplateVariantCode = '#template-dialog-template-variant-code';
 	this.TemplateContentClassFolders = '#template-content-class-folders';
 	this.TemplateContentClasses = '#template-content-classes';
 	this.TemplateContentClassTemplates = '#template-content-class-templates';
 	
 	this.ListAllProjectVariants(function(Data){
-		ThisClass.ListAllContentClassFolders()
+		var ProjectVariantGuids = Data;
+		
+		ThisClass.ListAllContentClassFolders(function(Data){
+			var ContentClassFolders = Data;
+			
+			$.each(ContentClassFolders, function(){
+				var ContentClassFolderGuid = this.guid;
+				var ContentClassFolderName = this.name;
+				
+				ThisClass.ListContentClasses(ContentClassFolderGuid, ContentClassFolderName, function(Data){
+					var ContentClasses = Data;
+
+					$.each(ContentClasses, function(){
+						var ContentClassGuid = this.guid;
+
+						ThisClass.ListContentClassTemplates(ContentClassGuid, ProjectVariantGuids);
+					});
+				});
+			});
+		});
+	});
+	
+	$('body').on('click', '.btn-copy', function(){
+		ThisClass.CopyToClipboard($(this).attr('data-path'));
+	});
+	
+	var ActionDialogContainer = $(ThisClass.TemplateDialog).attr('data-container');
+	
+	$(ActionDialogContainer).find('.modal').on('click', 'shown', function(){
+		
+	});
+	
+	$(ActionDialogContainer).find('.modal').on('click', 'shown', function(){
+		
+	});
+	
+	$('body').on('click', '.btn-template-variant-code', function(){
+		$(this).closest('.content-class').removeClass('alert-info').addClass('alert-success');
+		
+		ThisClass.UpdateArea(ThisClass.TemplateDialog, undefined, {'name': 'Template Code', 'class': 'template-variant-code'});
+		
+		$ActionDialogModal = $(ActionDialogContainer).find('.modal');	
+		$ActionDialogModal.modal('show');
+		
+		var ContentClassTemplateVariantGuid = $(this).attr('data-guid');
+		ThisClass.ListContentClassTemplateVariantCode(ContentClassTemplateVariantGuid);
 	});
 }
 
@@ -40,22 +87,21 @@ ContentClassInspector.prototype.ListAllContentClassFolders = function(CallbackFu
 		
 		$(Data).find('GROUP').each(function() {
 			var ContentClassFolder = {
-				'headline': $(this).attr('name'),
+				'name': $(this).attr('name'),
 				'guid': $(this).attr('guid')
-			}
-			;
+			};
+			
 			ContentClassFolders.push(ContentClassFolder);
 		});
 		
 		var ContentClassFoldersJson = {
-			'contentclassfolders': ContentClassFolders,
-			'count': ContentClassFolders.length
+			'contentclassfolders': ContentClassFolders
 		};
 		
 		ThisClass.UpdateArea(ThisClass.TemplateContentClassFolders, undefined, ContentClassFoldersJson);
 		
 		if(CallbackFunc){
-			CallbackFunc(ProjectVariantGuids);
+			CallbackFunc(ContentClassFolders);
 		}
 	});
 }
@@ -72,54 +118,80 @@ ContentClassInspector.prototype.ListContentClasses = function(ContentClassFolder
 		$(Data).find('TEMPLATE').each(function() {
 			var ContentClass = {
 				'name': $(this).attr('name'),
-				'guid': $(this).attr('guid')
+				'guid': $(this).attr('guid'),
 				'path': ContentClassFolderName + '/' + $(this).attr('name')
 			};
 			
 			ContentClasses.push(ContentClass);
-			
-			ThisClass.UpdateArea(ThisClass.TemplateContentClasses, ' .' + ContentClassFolderGuid, ContentClassFoldersJson);
 		});
+
+		var ContentClassesJson = {
+			'contentclasses': ContentClasses
+		};
+
+		ThisClass.UpdateArea(ThisClass.TemplateContentClasses, ' .' + ContentClassFolderGuid, ContentClassesJson);
 		
 		if(CallbackFunc){
-			CallbackFunc(ProjectVariantGuids);
+			CallbackFunc(ContentClasses);
 		}
 	});
 }
 
 ContentClassInspector.prototype.ListContentClassTemplates = function(ContentClassGuid, ProjectVariantGuids, CallbackFunc) {
+	var ThisClass = this;
+	
 	// list templates in a content class
-	var RqlXml = '<PROJECT><TEMPLATE guid="' + ContentClassGuid + '"><TEMPLATEVARIANTS action="list"/></TEMPLATE></PROJECT>';
+	var RqlXml = '<PROJECT><TEMPLATE guid="' + ContentClassGuid + '"><TEMPLATEVARIANTS action="list"/><TEMPLATEVARIANTS action="projectvariantslist" /></TEMPLATE></PROJECT>';
 
 	// send RQL XML
 	this.RqlConnectorObj.SendRql(RqlXml, false, function(Data) {
 		var ContentClassTemplates = [];
-		
-		$(data).find('TEMPLATEVARIANT').each(function() {
+
+		$(Data).find('TEMPLATEVARIANTS[action="list"] TEMPLATEVARIANT').each(function() {
 			var ContentClassTemplate = {
 				'name': $(this).attr('name'),
 				'guid': $(this).attr('guid'),
-				'projectvariantname': ProjectVariantGuids[$(this).attr("projectvariantguid")] 
+				'projectvariantnames': [] 
 			};
+			
+			$(Data).find('TEMPLATEVARIANTS[action="projectvariantslist"] TEMPLATEVARIANT[guid="' + ContentClassTemplate.guid + '"]').each(function() {
+				var ProjectVariantName = {
+					'name': ProjectVariantGuids[$(this).attr('projectvariantguid')]
+				};
+				
+				ContentClassTemplate.projectvariantnames.push(ProjectVariantName);
+			});
+			
+			ContentClassTemplates.push(ContentClassTemplate);
 		});
-		
-		ThisClass.UpdateArea(ThisClass.TemplateContentClasses, ' .' + ContentClassGuid, ContentClassFoldersJson);
-		
+
+		var ContentClassTemplatesJson = {
+			'contentclasstemplates': ContentClassTemplates
+		};
+
+		ThisClass.UpdateArea(ThisClass.TemplateContentClassTemplates, ' .' + ContentClassGuid, ContentClassTemplatesJson);
+
 		if(CallbackFunc){
 			CallbackFunc(ProjectVariantGuids);
 		}
 	});
 }
 
-ContentClassInspector.prototype.ListContentClassTemplateProjectVariantAssignment = function(ContentClassGuid, CallbackFunc) {
-	// list project variants assigned to template
-	var strRQL = padRQLXML('<PROJECT><TEMPLATE guid="' + ContentClassGuid + '" ><TEMPLATEVARIANTS action="projectvariantslist" /></TEMPLATE></PROJECT>');
-
+ContentClassInspector.prototype.ListContentClassTemplateVariantCode = function(ContentClassTemplateVariantGuid, CallbackFunc) {
+	var ThisClass = this;
+	
+	// list templates in a content class
+	var RqlXml = '<PROJECT><TEMPLATE><TEMPLATEVARIANT action="load" readonly="1" guid="' + ContentClassTemplateVariantGuid + '" /></TEMPLATE></PROJECT>';
+	
 	// send RQL XML
 	this.RqlConnectorObj.SendRql(RqlXml, false, function(Data) {
-		$(data).find('TEMPLATEVARIANT').each(function() {
-			$('#' + $(this).attr('guid') + ' span.projectvariants').append(ProjectVariantGuids[$(this).attr('projectvariantguid')] + ' ');
-		});
+		var TemplateVariantCode = $.trim($(Data).find('TEMPLATEVARIANT').text());
+		
+		ThisClass.UpdateArea(ThisClass.TemplateDialogTemplateVariantCode, undefined, {'templatevariantcode': TemplateVariantCode});
+		
+		if(CallbackFunc){
+			CallbackFunc(Data);
+		}
 	});
 }
 
