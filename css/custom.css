@@ -13,3 +13,12 @@ body {
     height: 95%;
     margin: 0px;
 }
+
+.template-variant-code.modal .modal-body {
+	max-height: none;
+}
+
+.syntaxhighlighter { 
+ overflow-y: hidden !important; 
+ overflow-x: auto !important; 
+}
